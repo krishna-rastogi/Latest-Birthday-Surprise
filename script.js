@@ -1,4 +1,4 @@
-const openingText = "Hey... I made something for you 💖";
+const openingText = "Heyyy... I made something for you 💖";
 
 const heartfeltMessage = 
 "On your special day, I just wanted to say — you are genuinely a really nice person 😊\n\nYour positivity and the way you carry yourself always stand out.\n\nThis is just a way of wishing you a very joyful birthday, NOTHING MORE 😄\n\nI hope this year brings you peace, laughter, and every little happiness you deserve ✨";const BIRTHDAY_AGE = 22;
@@ -204,7 +204,7 @@ window.addEventListener("scroll", () => {
 });
 
 const teaseMessage =
-  "You owe me a partyyy noww🥳😋\n\n Evry year 19 Nov pr CWC'23 haarne ka dukh rhta tha, bt iss saal wo thoda kam hogya, kyuki ek prty milne wli h very sooonn 😁 \n\n Anyways, you can personalize this web by using ur photos and memories. Will add u to the contributors under my github.  \n\nHope you liked this, Enjoy your day! ✨";
+  "You owe me a partyyy noww🥳😋\n\n Har saal 19 Nov pr CWC'23 haarne ka dukh rhta tha, bt iss saal wo thoda kam hoga, kyuki ek prty milne wli h very sooonn 😁 \n\n Anyways, you can personalize this web by using ur photos and memories. Will add u to the contributors under my github.  \n\nHope you liked this surprise, Enjoy your day! ✨";
 
 let teaseStarted = false;
 
